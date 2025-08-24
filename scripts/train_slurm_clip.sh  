@@ -1,0 +1,38 @@
+#!/bin/bash
+#SBATCH --job-name=clipViT32log
+#SBATCH --partition=gpu
+#SBATCH --account=r00329
+#SBATCH --gres=gpu:4
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=128G
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=48:00:00
+#SBATCH --output=clipViT32log_%j.out
+#SBATCH --error=clipViT32log_%j.err
+#SBATCH --mail-user=ysathees@iu.edu
+#SBATCH --mail-type=ALL
+
+module load python/gpu/3.11.5
+source /N/project/cogllm/SAYCam/Infant_videos/clip_homeview/bin/activate
+export PYTHONPATH=$PYTHONPATH:/N/project/cogllm/SAYCam/Infant_videos/open_clip/src
+cd /N/project/cogllm/SAYCam/Infant_videos/open_clip/src
+source /N/project/cogllm/SAYCam/Infant_videos/get_started.sh
+
+srun python -m open_clip_train.main \
+  --train-data '/path/to/train/{00000000..00003157}.tar' \
+  --train-num-samples 3158000 \
+  --val-data '/path/to/val/{00003158..00003947}.tar' \
+  --val-num-samples 790000 \
+  --model "ViT-B-32" \
+  --dataset-type webdataset \
+  --batch-size 120 \
+  --workers 4 \
+  --epochs 30 \
+  --precision amp \
+  --save-frequency 1 \
+  --logs "/path/to/logs" \
+  --report-to wandb \
+  --wandb-project "OpenCLIP-Training" \
+  --name "clip_homeviewrunViT-B-32_log" \
+  --lr 0.00001
