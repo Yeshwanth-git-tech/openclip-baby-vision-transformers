@@ -1,77 +1,114 @@
-# 🧠 Egocentric Infant Vision Understanding via OpenCLIP  
-*Fine-Tuning Vision Transformers on Homeview Baby Dataset*
 
-[![OpenCLIP Fork](https://img.shields.io/badge/Forked%20from-openai%2FCLIP-blue)](https://github.com/openai/CLIP)  
-[![Big Red GPU](https://img.shields.io/badge/Compute-BigRed%20Supercomputer-red)](https://kb.iu.edu/d/bfqu)
+# 🧠 Egocentric Video Understanding using OpenCLIP on Infant-Homeview Dataset
 
----
-
-## 📍 Overview
-
-This repository extends the OpenCLIP training framework to process and fine-tune Vision Transformers (ViT, ResNet backbones, etc.) on a large-scale, **egocentric video dataset of infant environments** captured in natural home settings. The dataset is a derivative of **100K+ hours** of raw video footage, curated, cleaned, and converted into a WebDataset tar format to support scalable training.
-
-> 🧪 This project is part of a research initiative at **Luddy School of Informatics, Indiana University (IU)** and operates on non-public datasets from the Infant Homeview study, distinct from public datasets like SAYCam.
+This project is part of an applied research initiative at **Indiana University Luddy School of Informatics**. It explores contrastive image-language modeling over **100,000+ hours of egocentric baby videos** captured in real-world home environments.
 
 ---
 
-## 🧪 Research Pipeline
+## 📦 Dataset Overview
 
-### 🔁 Egocentric Preprocessing + Vision-Language Training
+> **Note**: This is *not the standard SAYCam dataset*. The dataset was provided as part of an internal IU research project.
 
-```mermaid
-flowchart TD
-  A[Raw Egocentric Videos (100K+ hrs)] --> B[Frame Extraction with FFmpeg (1 frame/sec)]
-  B --> C[Audio Transcription using Whisper AI]
-  C --> D[Data Cleaning, Filtering, Labeling]
-  D --> E[WebDataset Sharding (.tar format)]
-  E --> F[OpenCLIP Training]
-  F --> G[Model Checkpoints + Evaluation]
-  G --> H[wandb Logging + GPU-based Inference]
-
-  🧠 Models Used
-	•	✅ ViT-B/32, ViT-B/16, ViT-L/14, RN50, RN101
-	•	✅ Self-supervised DINO Pretraining used in alternate runs
-	•	✅ Fully trained using torchrun + SLURM on IU Big Red (NVIDIA A100 GPUs)
-
-
-📊 Results
-	•	Achieved strong label alignment between images and baby-centric context (e.g., toys, animals, rooms).
-	•	🧠 Validation accuracy and loss showed stable convergence.
-	•	All runs tracked with Weights & Biases (wandb) including both train/ and val/ loss.
-	•	Explored multiple splits: 80-20, 75-25 for train-val.
-
-🗂️ Sample Project Repository Structure
-
-open_clip/                     # Forked + Customized Training Framework
-├── src/
-│   ├── open_clip_train/       # Training CLI wrapper and utils
-│   └── open_clip/             # Model definition, tokenizers, pretrained loaders
-
-/data/
-├── cleaned_file_frame_dataset_tar/   # Sharded WebDataset tar files (train + val)
-
-logs/
-├── clip_homeviewrun*          # Multiple model logs (per run/model)
-└── wandb/                     # Optional local wandb run logs
-
-scripts/
-├── train_slurm_clip.sh         # Slurm training script
-├── infer_single_image.py       # Image+text inference demo
-├── whisper_transcribe.py       # Whisper transcription script
-└── extract_frames_ffmpeg.sh    # Frame extraction via FFmpeg
-
+- **Source**: Raw egocentric videos (infant headcam)
+- **Duration**: ~100k+ hours of footage
+- **Processing Pipeline**:
+  - 🎞️ Frame extraction using `ffmpeg` (1 FPS to 5 FPS)
+  - 🔊 Audio transcription using `Whisper AI` (OpenAI) to generate weak supervision labels
+  - 🧊 Tar-based storage using `WebDataset` format (sharded to ~4,000 `.tar` files)
+  - 🤖 Sample format: `{image, text}` pairs per frame
 
 ---
 
-## ⚙️ Scripts & Examples
+## ⚙️ Technical Infrastructure
 
-For full reproducibility and implementation reference, see the scripts below:
+- **Compute**: [Big Red 200 Supercomputer](https://kb.iu.edu/d/avjq) (IU HPC cluster)
+- **GPU**: NVIDIA A100 (×4) across multiple SLURM jobs
+- **Storage**: Lustre parallel filesystem (15+ TB raw data)
+- **Job Management**: SLURM (`sbatch`, `srun`, `torchrun`)
 
-| Script Name                          | Purpose                                      |
-|-------------------------------------|----------------------------------------------|
-| `scripts/train_slurm_clip.sh`       | SLURM job script to train OpenCLIP models    |
-| `scripts/infer_single_image.py`     | Inference on a single image with custom texts|
-| `scripts/whisper_transcribe.py`     | Transcribe egocentric audio using Whisper AI |
-| `scripts/extract_frames_ffmpeg.sh`  | Extract video frames using FFmpeg (1 fps)    |
+---
 
-📁 See [**scripts/**](./scripts/) folder for complete code examples.
+## 🛠️ Pretraining Pipeline
+
+- ✅ Custom data loaders for `WebDataset` format  
+- ✅ Multi-GPU distributed training via `torchrun`  
+- ✅ Mixed precision training with AMP (`--precision amp`)  
+- ✅ Model logging + monitoring via `Weights & Biases`  
+- ✅ Validation loss graph and Clip Loss tracking implemented
+
+---
+
+## 🔍 Models Trained
+
+We trained **multiple OpenCLIP backbones** end-to-end on the Infant-Homeview dataset:
+
+| Model Name     | Command Flag         | Parameters    |
+|----------------|----------------------|---------------|
+| ResNet-50      | `--model RN50`       | 102M          |
+| ResNet-101     | `--model RN101`      | 130M          |
+| ViT-B/32       | `--model ViT-B-32`   | 151M          |
+| ViT-B/16       | `--model ViT-B-16`   | 151M          |
+| ViT-L/14       | `--model ViT-L-14`   | 428M          |
+
+⏱️ We used **gradual scaling** based on GPU availability and convergence trends. Results improved with larger backbones on the domain-specific egocentric dataset.
+
+---
+
+## 📈 Key Achievements
+
+- 🔄 Complete training-validation split over 4M image-text pairs
+- 🔥 Achieved stable Clip Loss reductions with `ViT-B-32` and `ViT-L-14`
+- 🎯 Validated on unseen real-world baby-view frames (custom benchmark)
+- 📉 Loss convergence observed at scale (see W&B graphs)
+- 🧪 Verified image-text matching via inference on unseen samples
+- 🧠 Grounded text captions from Whisper-based pseudo-labels
+
+---
+
+## 🧾 Citation / Acknowledgements
+
+This project builds upon:
+
+- [OpenCLIP](https://github.com/mlfoundations/open_clip)
+- [OpenAI Whisper](https://github.com/openai/whisper)
+- [WebDataset](https://github.com/webdataset/webdataset)
+- Indiana University HPC Resources
+
+> All data and experiments are conducted under ethical research guidelines and internal research agreements.
+
+---
+
+## 📁 Repository Structure
+
+```bash
+├── open_clip_train/       # Custom scripts with val loss, batch logs etc.
+├── data_pipeline/         # FFmpeg + Whisper preprocessing scripts
+├── job_scripts/           # SLURM sbatch scripts (bash)
+├── logs/                  # W&B or local logs
+├── README.md              # This file
+└── clipgpu_test1.py       # CLIP inference sanity check
+```
+
+---
+
+## 🧩 Repository Strategy
+
+Since this work builds on `open_clip`, but your fork was from `openai/CLIP`, we recommend:
+
+> ✅ **Create a new GitHub repo** (e.g., `openclip-homeview-egocentric`)  
+> ✅ Push your full working codebase there  
+> ✅ Include logs, visuals, and checkpoints selectively
+
+This will clarify your contribution and distinguish your repo from the older OpenAI CLIP release.
+
+---
+
+## 🚀 Future Steps
+
+- Add `inference.py` to evaluate your trained checkpoints
+- Push sample `.tar` files (5–10) to test reproducibility
+- Optional: Export graphs or logs from W&B for results
+
+---
+
+### Author: Yeshwanth Satheesh 
